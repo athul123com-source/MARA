@@ -8,7 +8,8 @@ citation-backed literature summary produced by four specialized AI agents:
 | **Planner** | Breaks the question into 3–5 focused sub-questions | Phase 4 | ✅ Built |
 | **Retriever** | Semantic search over indexed papers (RAG) | Phase 2–3 | ✅ Built |
 | **Critic** | Fact-checks claims against retrieved evidence | Phase 5 | ✅ Built |
-| **Writer** | Composes the final cited summary | Phase 6 | ⬜ Planned |
+| **Writer** | Composes the final cited summary | Phase 6 | ✅ Built |
+| **Orchestrator** | LangGraph pipeline with cross-verification | Phase 7 | ✅ Built |
 
 Orchestrated with LangGraph (Phase 7), served by FastAPI (Phase 8), UI in
 Streamlit (Phase 9), evaluated in Phase 11.
@@ -33,6 +34,9 @@ mara-project/
 │   │   ├── planner.py       # ✅ Phase 4 — Planner agent
 │   │   ├── retriever.py     # ✅ Phase 3 — Retriever agent
 │   │   └── critic.py        # ✅ Phase 5 — Critic agent (fact-checking gate)
+│   ├── graph.py             # ✅ Phase 7 — LangGraph orchestrator (cross-verification)
+│   ├── mock_llm.py          # ✅ MOCK_LLM=1 deterministic stubs (no API keys)
+│   ├── tracing.py           # ✅ per-run JSON traces -> Phase 11 metrics
 │   └── ingestion/
 │       ├── fetch_papers.py  # ✅ Phase 2 — arXiv fetching
 │       ├── embeddings.py    # ✅ Phase 2 — batched OpenAI embeddings
@@ -40,7 +44,9 @@ mara-project/
 ├── tests/
 │   ├── test_planner.py              # 12 offline tests
 │   ├── test_ingestion_retriever.py  # 16 offline tests (in-memory Qdrant)
-│   └── test_critic.py               # 24 offline tests
+│   ├── test_critic.py               # 24 offline tests
+│   ├── test_writer_graph.py         # 15 offline tests (Writer + full graph)
+│   └── test_mock_tracing.py         # 16 offline tests (mock mode + traces)
 ├── docs/
 │   ├── MARA_MASTER_GUIDE.md     # consolidated roadmap & team guide (source)
 │   ├── MARA_MASTER_GUIDE.pdf    # same, as PDF for sharing
@@ -61,6 +67,11 @@ mara-project/
    ```
 3. **API keys:** copy `.env.example` to `.env` and add your
    [Anthropic key](https://console.anthropic.com). `.env` is git-ignored.
+   **No keys yet?** Set `MOCK_LLM=1` (in `.env` or the shell) to run the
+   entire pipeline with deterministic stubs — zero keys, zero cost.
+   Every run also writes a JSON trace to `traces/` (disable: `TRACE=0`,
+   relocate: `TRACE_DIR=<path>`); `python -m backend.tracing` summarizes
+   all traces into the evaluation metrics.
 4. **Git identity + GitHub (once, per machine):**
    ```bash
    git config --global user.name "Your Name"

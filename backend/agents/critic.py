@@ -20,7 +20,9 @@ import re
 
 import anthropic
 
-from backend.config import ANTHROPIC_API_KEY, CRITIC_MODEL
+from backend.agents.llm_parsing import parse_json_list
+from backend.config import ANTHROPIC_API_KEY, CRITIC_MODEL, mock_llm_enabled
+from backend.mock_llm import MockAnthropic
 
 CRITIC_PROMPT = """You are a fact-checking assistant. Given a CLAIM and a set of SOURCE
 EXCERPTS, determine whether the claim is directly supported by the excerpts.
@@ -52,10 +54,12 @@ _MAX_SOURCE_CHARS = 2000  # truncate pathological chunks
 
 
 def _get_client() -> anthropic.Anthropic:
-    """Create an Anthropic client; raise a clear error if no API key."""
+    """Return the mock client in MOCK_LLM mode, else the real Anthropic client."""
+    if mock_llm_enabled():
+        return MockAnthropic()  # type: ignore[return-value]
     if not ANTHROPIC_API_KEY:
         raise RuntimeError(
-            "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key."
+            "ANTHROPIC_API_KEY is not set. Copy .env.example with your key."
         )
     return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -124,7 +128,72 @@ def _extract_justification(text: str) -> str:
     return text
 
 
-__all__ = ["check_claim", "parse_verdict", "VERDICTS", "CRITIC_PROMPT"]
+# ---------------------------------------------------------------------------
+# Claim drafting: candidate claims are drafted FROM the evidence first, then
+# cross-verified against ALL retrieved chunks. The original guide's design
+# (critic_node checks chunk['text'] against [chunk['text']]) is tautological
+# - a chunk trivially supports itself, so every verdict would be SUPPORTED
+# and the Critic would filter nothing. Cross-verification is the fix.
+# ---------------------------------------------------------------------------
+
+CLAIMS_PROMPT = """You are a research analysis assistant. Below are excerpts from
+academic papers. Extract 3-6 short, self-contained factual claims that the
+excerpts support (each claim must state a specific finding or technique, be
+understandable without the excerpts, and be attributable to at least one of
+them). Respond ONLY with a JSON list of strings.
+
+EXCERPTS:
+{excerpts}
+"""
+
+
+def extract_claims(evidence: list[dict], max_retries: int = 1) -> list[dict]:
+    """Draft candidate claims from retrieved evidence chunks.
+
+    Args:
+        evidence: retrieved chunks (dicts with at least "text"; "title"/"url"
+            used to track provenance).
+    Returns:
+        List of {"claim", "sources"} where sources is a list of {"title",
+        "url"} dicts naming the chunk(s) each claim came from.
+    """
+    client = _get_client()
+    excerpts = "\n---\n".join(
+        f"[{i + 1}] {e['text'][:_MAX_SOURCE_CHARS]}" for i, e in enumerate(evidence[:_MAX_SOURCES])
+    )
+    prompt = CLAIMS_PROMPT.format(excerpts=excerpts)
+
+    for attempt in range(max_retries + 1):
+        response = client.messages.create(
+            model=CRITIC_MODEL,
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+        claims = parse_json_list(text)
+        if claims:
+            break
+
+    # Track which chunk(s) each claim was drafted from (by number tag).
+    # If the model doesn't tag sources, attribute all chunks conservatively.
+    out: list[dict] = []
+    for claim in claims:
+        tag_refs = [int(n) for n in re.findall(r"\[(\d+)\]", claim)]
+        if tag_refs:
+            sources = [
+                {"title": evidence[n - 1]["title"], "url": evidence[n - 1]["url"]}
+                for n in tag_refs
+                if 1 <= n <= len(evidence)
+            ]
+        else:
+            sources = [
+                {"title": e["title"], "url": e["url"]} for e in evidence[:_MAX_SOURCES]
+            ]
+        out.append({"claim": claim, "sources": sources})
+    return out
+
+
+__all__ = ["check_claim", "parse_verdict", "extract_claims", "VERDICTS", "CRITIC_PROMPT"]
 
 
 if __name__ == "__main__":

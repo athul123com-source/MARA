@@ -10,7 +10,8 @@ from typing import Iterable
 
 from openai import OpenAI
 
-from backend.config import OPENAI_API_KEY
+from backend.config import OPENAI_API_KEY, mock_llm_enabled
+from backend.mock_llm import MockEmbeddings
 
 _client: OpenAI | None = None
 
@@ -29,8 +30,11 @@ def _get_client() -> OpenAI:
 def embed_texts(texts: list[str], batch_size: int = 64) -> list[list[float]]:
     """Embed a list of texts, batching requests to reduce API overhead.
 
-    Order of results matches order of inputs.
+    Order of results matches order of inputs. In MOCK_LLM mode, routes to
+    the deterministic bag-of-words mock (no key, no network).
     """
+    if mock_llm_enabled():
+        return MockEmbeddings().embed_texts(texts)
     vectors: list[list[float]] = []
     client = _get_client()
     for start in range(0, len(texts), batch_size):

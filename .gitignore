@@ -4,5 +4,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 qdrant_storage/
+traces/
 evaluation/results.json
 evaluation/results_baseline.json

@@ -7,16 +7,15 @@ sub-questions drive the Retriever Agent (Phase 3) later.
 Design notes:
 - The client is created lazily so importing this module never crashes
   when ANTHROPIC_API_KEY is missing (e.g., in unit tests or CI).
-- LLMs sometimes wrap JSON in markdown code fences or add prose; we
-  parse defensively instead of relying on a bare json.loads().
+- LLMs sometimes wrap JSON in markdown code fences or add prose; parsing
+  is delegated to the shared defensive parser (backend.agents.llm_parsing).
 - Retries once on transient API errors to keep benchmark runs stable.
 """
-import json
-import re
-
 import anthropic
 
-from backend.config import ANTHROPIC_API_KEY, PLANNER_MODEL
+from backend.agents.llm_parsing import parse_json_list
+from backend.config import ANTHROPIC_API_KEY, PLANNER_MODEL, mock_llm_enabled
+from backend.mock_llm import MockAnthropic
 
 PLANNER_PROMPT = """You are a research planning assistant. Given a research question,
 break it into 3-5 focused sub-questions that, if answered, would together answer the
@@ -27,11 +26,10 @@ other text.
 Research question: {question}
 """
 
-_VALID_VERDICT_RE = re.compile(r"^\[[^\]]*\]|^```(?:json)?|```", re.IGNORECASE)
-
-
 def _get_client() -> anthropic.Anthropic:
-    """Create an Anthropic client; raise a clear error if no API key."""
+    """Return the mock client in MOCK_LLM mode, else the real Anthropic client."""
+    if mock_llm_enabled():
+        return MockAnthropic()  # type: ignore[return-value]
     if not ANTHROPIC_API_KEY:
         raise RuntimeError(
             "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key."
@@ -42,31 +40,10 @@ def _get_client() -> anthropic.Anthropic:
 def parse_subquestions(text: str) -> list[str]:
     """Extract a JSON list of sub-questions from an LLM response.
 
-    Handles: clean JSON lists, ```json fenced lists, and a JSON list
-    embedded in surrounding prose. Returns [] if nothing parseable.
+    Thin wrapper over the shared defensive parser; kept so existing
+    imports and tests keep working.
     """
-    text = text.strip()
-    # 1) Fast path: the whole response is a JSON list.
-    try:
-        parsed = json.loads(text)
-        if isinstance(parsed, list):
-            return [str(item).strip() for item in parsed if str(item).strip()]
-    except json.JSONDecodeError:
-        pass
-    # 2) Fallback: grab the first bracketed [...] block in the text.
-    match = re.search(r"\[.*\]", text, re.DOTALL)
-    if match:
-        try:
-            parsed = json.loads(match.group(0))
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-        except json.JSONDecodeError:
-            pass
-    # 3) Last resort: numbered/bulleted lines ("1. ..." or "- ...").
-    lines = re.findall(r"^(?:\d+[\.\)]|[-*])\s+(.+)$", text, re.MULTILINE)
-    if lines:
-        return [line.strip().strip('"') for line in lines]
-    return []
+    return parse_json_list(text)
 
 
 def plan(question: str, max_retries: int = 1) -> list[str]:

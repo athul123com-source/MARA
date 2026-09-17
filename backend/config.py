@@ -30,6 +30,31 @@ WRITER_MODEL = "claude-sonnet-4-6"
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 
+# ---------------------------------------------------------------------------
+# Mock mode (master guide P1 item 5)
+# ---------------------------------------------------------------------------
+# Set MOCK_LLM=1 to run the ENTIRE pipeline (all four agents + embeddings)
+# with deterministic in-process stubs: no API keys, no network, no cost.
+# Used by teammates building the API/frontend and by offline demos.
+def mock_llm_enabled() -> bool:
+    """Read MOCK_LLM dynamically so tests can flip it via monkeypatch.setenv."""
+    return os.getenv("MOCK_LLM", "").strip().lower() in ("1", "true", "yes")
+
+
+# ---------------------------------------------------------------------------
+# Per-run trace logging (master guide P1 item 6)
+# ---------------------------------------------------------------------------
+# Every run_query() writes traces/<slug>.json containing the question,
+# per-agent outputs, verdicts, confidence and timing — which automatically
+# becomes the Phase 11 evaluation data. Disable with TRACE=0.
+def trace_dir() -> str:
+    return os.getenv("TRACE_DIR", "traces")
+
+
+def trace_enabled() -> bool:
+    return os.getenv("TRACE", "1").strip().lower() not in ("0", "false", "no")
+
+
 def get_qdrant_client():
     """Return a Qdrant client using whichever backend is configured.
 
