@@ -18,15 +18,15 @@
 | Planner agent (defensive JSON parsing) | 4 | ✅ Built |
 | Retriever agent (fail-soft, idempotent indexing) | 3 | ✅ Built |
 | Critic agent (fail-closed verdicts) | 5 | ✅ Built |
-| Offline test suite | — | ✅ 52 tests passing |
-| Writer agent | 6 | ⬜ Next |
-| LangGraph orchestration | 7 | ⬜ |
-| FastAPI backend | 8 | ⬜ |
+| Offline test suite | — | ✅ 83 tests passing |
+| Writer agent | 6 | ✅ Built |
+| LangGraph orchestration | 7 | ✅ Built (cross-verification live) |
+| FastAPI backend | 8 | ⬜ Next |
 | Streamlit frontend | 9 | ⬜ |
 | Deployment | 10 | ⬜ |
 | Evaluation framework | 11 | ⬜ |
 | Report & viva | 12 | ⬜ |
-| Git commits / GitHub | — | ⚠️ **Nothing committed yet — identity unset** |
+| Git commits / GitHub | — | ⚠️ First commit made; GitHub push pending |
 
 ---
 
@@ -38,10 +38,10 @@
    everyone works in feature branches with PRs. Add a GitHub Actions workflow
    running the offline tests on every PR (free, ~15 min). Nothing else matters
    until this is done.
-2. **Commit all existing work** (everything is already staged).
-3. **Writer agent (Phase 6)** — same conventions as the other three agents:
-   lazy client, defensive parsing, retry, offline tests, standalone demo.
-4. **LangGraph orchestration (Phase 7) with one critical design fix:** the
+2. ✅ **Commit all existing work** — done; further work commits as it lands.
+3. ✅ **Writer agent (Phase 6)** — built with the same conventions: lazy
+   client, defensive parsing, retry, offline tests, standalone demo.
+4. ✅ **LangGraph orchestration (Phase 7) with the critical design fix:** the
    original guide's critic node checks each chunk *against itself*
    (`check_claim(chunk["text"], [chunk["text"]])`) — always SUPPORTED,
    tautological, useless. Instead: generate candidate claims from the evidence
@@ -51,11 +51,13 @@
 
 ### P1 — Make it run end-to-end (weeks 2–3)
 
-5. **Mock mode (`MOCK_LLM=1`)** — deterministic stubbed agent responses so all
-   five members develop and demo with zero API cost and zero keys.
-6. **Per-run trace logging** — log every agent's inputs/outputs/timing to a
-   JSON file per query. This automatically generates the Phase 11 evaluation
-   data (latency per agent, factual-consistency rate, source counts).
+5. ✅ **Mock mode (`MOCK_LLM=1`)** — built: deterministic stubbed agent
+   responses so all five members develop and demo with zero API cost and
+   zero keys.
+6. ✅ **Per-run trace logging** — built: every agent's inputs/outputs/timing
+   is logged to a JSON file per query. This automatically generates the
+   Phase 11 evaluation data (latency per agent, factual-consistency rate,
+   source counts).
 7. **FastAPI backend (Phase 8)** — `/query` endpoint plus a `/trace` view of
    the pipeline steps.
 8. **Streamlit frontend (Phase 9) with streaming progress** — show
@@ -176,7 +178,7 @@ Rules that make this real rather than cosmetic:
    pairs (contrastive learning), improving recall@5 from X to Y."
 3. "Ablations (Critic on/off, baseline comparison) with automated per-run
    tracing; cut median latency Z% via semantic caching."
-4. "Engineered for reliability: 52+ offline tests in CI, mock-LLM mode, and an
+4. "Engineered for reliability: 83+ offline tests in CI, mock-LLM mode, and an
    offline (Ollama) demo mode."
 
 Fill in X/Y/Z with the real measured numbers at the end.
