@@ -33,8 +33,11 @@ mara-project/
 │   ├── agents/
 │   │   ├── planner.py       # ✅ Phase 4 — Planner agent
 │   │   ├── retriever.py     # ✅ Phase 3 — Retriever agent
-│   │   └── critic.py        # ✅ Phase 5 — Critic agent (fact-checking gate)
+│   │   ├── critic.py        # ✅ Phase 5 — Critic agent (fact-checking gate)
+│   │   ├── writer.py        # ✅ Phase 6 — Writer agent (cited summary)
+│   │   └── llm_parsing.py   # shared defensive JSON parsing (Planner + Critic)
 │   ├── graph.py             # ✅ Phase 7 — LangGraph orchestrator (cross-verification)
+│   ├── main.py              # ✅ Phase 8 — FastAPI API (/query /trace /health)
 │   ├── mock_llm.py          # ✅ MOCK_LLM=1 deterministic stubs (no API keys)
 │   ├── tracing.py           # ✅ per-run JSON traces -> Phase 11 metrics
 │   └── ingestion/
@@ -46,7 +49,8 @@ mara-project/
 │   ├── test_ingestion_retriever.py  # 16 offline tests (in-memory Qdrant)
 │   ├── test_critic.py               # 24 offline tests
 │   ├── test_writer_graph.py         # 15 offline tests (Writer + full graph)
-│   └── test_mock_tracing.py         # 16 offline tests (mock mode + traces)
+│   ├── test_mock_tracing.py         # 16 offline tests (mock mode + traces)
+│   └── test_api.py                  # 11 offline tests (FastAPI endpoints)
 ├── docs/
 │   ├── MARA_MASTER_GUIDE.md     # consolidated roadmap & team guide (source)
 │   ├── MARA_MASTER_GUIDE.pdf    # same, as PDF for sharing
@@ -132,6 +136,34 @@ python -m backend.agents.retriever
 embedded on-disk store (no Docker needed), or `QDRANT_URL` for a Docker/
 Cloud server. With neither set, an in-memory store is used (lost on restart).
 
+## Run the API (Phase 8)
+
+```bash
+# Development (auto-reload):
+uvicorn backend.main:app --reload --port 8000
+
+# Or with zero API keys:
+MOCK_LLM=1 uvicorn backend.main:app --port 8000
+```
+
+Interactive OpenAPI docs: <http://localhost:8000/docs>
+
+```bash
+# Ask a research question (full pipeline):
+curl -X POST http://localhost:8000/query -H "Content-Type: application/json" \
+  -d '{"question": "How does federated learning preserve data privacy?"}'
+
+# Phase 11 metrics aggregated across all recorded runs:
+curl http://localhost:8000/trace
+
+# The most recent run's full trace:
+curl http://localhost:8000/trace/latest
+```
+
+The `/query` response carries everything the Streamlit UI (Phase 9) needs:
+the cited answer, confidence (supported/total claims), deduplicated sources,
+sub-questions, rejected claims, per-agent timing and the trace file path.
+
 ## Design decisions (for your report / viva)
 
 - **Defensive JSON parsing** (`parse_subquestions`): the naive
@@ -172,3 +204,15 @@ Cloud server. With neither set, an in-memory store is used (lost on restart).
 - **Retry, then fail closed:** one retry on malformed output; a claim that
   still can't be verified is dropped by the orchestrator (Phase 7), which is
   exactly the design rule that makes MARA trustworthy.
+
+### API (Phase 8)
+
+- **Deferred graph import:** `backend.graph` is imported inside the request
+  handler, so `backend.main` imports cleanly with no API keys and tests can
+  monkeypatch `run_query`.
+- **Errors map to HTTP:** pipeline exceptions surface as HTTP 500 with the
+  underlying message; invalid questions fail pydantic validation (422); an
+  empty trace history is a clean 404 on `/trace/latest`.
+- **Source deduplication:** `/query` merges each verified claim's provenance
+  list into one ordered source list — exactly what the frontend's
+  "Show sources" section renders.
