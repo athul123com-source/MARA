@@ -44,13 +44,17 @@ mara-project/
 │       ├── fetch_papers.py  # ✅ Phase 2 — arXiv fetching
 │       ├── embeddings.py    # ✅ Phase 2 — batched OpenAI embeddings
 │       └── index_papers.py  # ✅ Phase 2 — chunk + embed + index into Qdrant
+├── ui/
+│   └── app.py               # ✅ Phase 9 — Streamlit chat UI (confidence, citations, timing)
 ├── tests/
 │   ├── test_planner.py              # 12 offline tests
 │   ├── test_ingestion_retriever.py  # 16 offline tests (in-memory Qdrant)
 │   ├── test_critic.py               # 24 offline tests
 │   ├── test_writer_graph.py         # 15 offline tests (Writer + full graph)
 │   ├── test_mock_tracing.py         # 16 offline tests (mock mode + traces)
-│   └── test_api.py                  # 11 offline tests (FastAPI endpoints)
+│   ├── test_api.py                  # 11 offline tests (FastAPI endpoints)
+│   └── test_ui.py                   # 20 offline tests (UI helpers + API client)
+├── scripts/                 # PPTX review-deck helpers (audit / fix / verify)
 ├── docs/
 │   ├── MARA_MASTER_GUIDE.md     # consolidated roadmap & team guide (source)
 │   ├── MARA_MASTER_GUIDE.pdf    # same, as PDF for sharing
@@ -163,6 +167,27 @@ curl http://localhost:8000/trace/latest
 The `/query` response carries everything the Streamlit UI (Phase 9) needs:
 the cited answer, confidence (supported/total claims), deduplicated sources,
 sub-questions, rejected claims, per-agent timing and the trace file path.
+
+## Run the UI (Phase 9)
+
+```bash
+# Terminal 1 — backend (zero-key demo mode):
+MOCK_LLM=1 uvicorn backend.main:app --port 8000
+
+# Terminal 2 — frontend:
+streamlit run ui/app.py
+```
+
+Opens <http://localhost:8501>. The sidebar shows a live health badge for the
+API (green in mock mode without any API keys), demo questions to click, and a
+conversation reset. Each answer renders the cited summary, a confidence bar
+(supported/total claims), per-agent timing metrics, expandable sources,
+planner sub-questions and the Critic's claim-verification detail. The UI is a
+thin client over `POST /query` — helpers are covered by
+`tests/test_ui.py` (20 offline tests).
+
+> Windows PowerShell: set the env var with `$env:MOCK_LLM="1"` instead of the
+> `MOCK_LLM=1` prefix (which is bash syntax).
 
 ## Design decisions (for your report / viva)
 

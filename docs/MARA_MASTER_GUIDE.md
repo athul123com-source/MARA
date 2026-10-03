@@ -18,15 +18,15 @@
 | Planner agent (defensive JSON parsing) | 4 | ✅ Built |
 | Retriever agent (fail-soft, idempotent indexing) | 3 | ✅ Built |
 | Critic agent (fail-closed verdicts) | 5 | ✅ Built |
-| Offline test suite | — | ✅ 83 tests passing |
+| Offline test suite | — | ✅ 114 tests passing |
 | Writer agent | 6 | ✅ Built |
 | LangGraph orchestration | 7 | ✅ Built (cross-verification live) |
-| FastAPI backend | 8 | ⬜ Next |
-| Streamlit frontend | 9 | ⬜ |
+| FastAPI backend | 8 | ✅ Built (/query, /trace, /health) |
+| Streamlit frontend | 9 | ✅ Built (chat UI, confidence bar, per-agent timing, citations) |
 | Deployment | 10 | ⬜ |
 | Evaluation framework | 11 | ⬜ |
 | Report & viva | 12 | ⬜ |
-| Git commits / GitHub | — | ⚠️ First commit made; GitHub push pending |
+| Git commits / GitHub | — | ⚠️ 6 commits on main; GitHub push pending (repo creation) |
 
 ---
 
